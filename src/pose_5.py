@@ -69,19 +69,40 @@ def minimize_marginals(graph, initial_estimate, pose_options):
 
     return best_pose, best_landmark, sum_of_marginals
 
+
+
 def minimize_errors(graph, initial_estimate, pose_options):
 
-    best_pose = "d"       
-    best_landmark = 1    
+    graph_copy = gtsam.NonlinearFactorGraph(graph)
+    estimate_copy = gtsam.Values(initial_estimate)
+
+    best_pose = "d"
+    best_landmark = 1
 
     pose_5 = pose_options[best_pose]
 
-    graph, initial_estimate = add_pose(graph, initial_estimate, pose_5)
-    result = optimize(graph, initial_estimate)
+    if estimate_copy.exists(X(5)):
+        estimate_copy.erase(X(5))
 
-    graph = add_landmark_measurement(graph, result, pose_5, best_landmark)
-    result = optimize(graph, result)
+    graph_copy, estimate_copy = add_pose(graph_copy, estimate_copy, pose_5)
 
-    sum_of_errors = graph.error(result)
+    # First optimization
+    result1 = optimize(graph_copy, estimate_copy)
+
+    # Add measurement using optimized pose
+    graph_copy = add_landmark_measurement(graph_copy, result1, pose_5, best_landmark)
+
+    # ✅ FIX: re-optimize from estimate_copy, NOT result1
+    result2 = optimize(graph_copy, estimate_copy)
+
+    list_of_errors = []
+    error = graph_copy.error(result2)
+    list_of_errors.append(error)
+
+    sum_of_errors = sum(list_of_errors)
+
+    print(f"Pose {best_pose} and Landmark {best_landmark} have a sum of errors: {sum_of_errors}")
 
     return best_pose, best_landmark, sum_of_errors
+
+
